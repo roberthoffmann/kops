@@ -19,21 +19,38 @@ package mockblockstorage
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/google/uuid"
+	"github.com/gophercloud/gophercloud/v2"
+	"github.com/gophercloud/gophercloud/v2/openstack/blockstorage/v3/volumes"
 	"net/http"
 	"net/url"
 	"regexp"
 	"strings"
-
-	"github.com/google/uuid"
-	"github.com/gophercloud/gophercloud/v2/openstack/blockstorage/v3/volumes"
+	"time"
 )
 
+type JSONRFC3339MilliNoZ gophercloud.JSONRFC3339MilliNoZ
+
+const RFC3339NoZ = "2006-01-02T15:04:05"
+
+func (l *JSONRFC3339MilliNoZ) MarshalJSON() ([]byte, error) {
+	t := time.Time(*l)
+	s := `"` + t.Format(RFC3339NoZ) + `"`
+	return []byte(s), nil
+}
+
+type ExtendedVolumeType struct {
+	volumes.Volume
+	CreatedAt JSONRFC3339MilliNoZ `json:"created_at"`
+	UpdatedAt JSONRFC3339MilliNoZ `json:"updated_at"`
+}
+
 type volumeListResponse struct {
-	Volumes []volumes.Volume `json:"volumes"`
+	Volumes []ExtendedVolumeType `json:"volumes"`
 }
 
 type volumeGetResponse struct {
-	Volume volumes.Volume `json:"volume"`
+	Volume ExtendedVolumeType `json:"volume"`
 }
 
 type volumeCreateRequest struct {
@@ -44,8 +61,9 @@ type volumeUpdateRequest struct {
 	Volume volumes.UpdateOpts `json:"volume"`
 }
 
-func (m *MockClient) mockVolumes() {
+func (m *MockClient) mockVolumes(extraMocks ExtraMocks) {
 	re := regexp.MustCompile(`/volumes/?`)
+	updateCounter := 0
 
 	handler := func(w http.ResponseWriter, r *http.Request) {
 		m.mutex.Lock()
@@ -62,9 +80,10 @@ func (m *MockClient) mockVolumes() {
 				m.getVolume(w, volID)
 			}
 		case http.MethodPost:
-			m.createVolume(w, r)
+			m.createVolume(w, r, extraMocks.Create)
 		case http.MethodPut:
-			m.updateVolume(w, r, volID)
+			m.updateVolume(w, r, volID, extraMocks.Update[updateCounter])
+			updateCounter++
 		case http.MethodDelete:
 			m.deleteVolume(w, volID)
 		default:
@@ -75,17 +94,63 @@ func (m *MockClient) mockVolumes() {
 	m.Mux.HandleFunc("/volumes", handler)
 }
 
+func MarshalVolume(volume volumes.Volume) ([]byte, error) {
+	var res []byte
+	var newVolume volumeGetResponse
+
+	newVol, err := AddMocksReplaceVolumes(&volume)
+	if err != nil {
+		return nil, err
+	}
+
+	newVolume.Volume = newVol
+
+	res, err = json.Marshal(&newVolume)
+	if err != nil {
+		return nil, err
+	}
+
+	return res, nil
+}
+
+func MarshalVolumes(volumes []volumes.Volume) ([]byte, error) {
+	var res []byte
+	var newVolumes volumeListResponse
+
+	for _, v := range volumes {
+		newVolume, err := AddMocksReplaceVolumes(&v)
+		if err != nil {
+			return nil, err
+		}
+		newVolumes.Volumes = append(newVolumes.Volumes, newVolume)
+	}
+
+	res, err := json.Marshal(newVolumes)
+	if err != nil {
+		return nil, err
+	}
+
+	return res, nil
+}
+
+func AddMocksReplaceVolumes(r *volumes.Volume) (ExtendedVolumeType, error) {
+
+	newVol := ExtendedVolumeType{
+		*r,
+		JSONRFC3339MilliNoZ(r.CreatedAt),
+		JSONRFC3339MilliNoZ(r.UpdatedAt),
+	}
+	return newVol, nil
+}
+
 func (m *MockClient) listVolumes(w http.ResponseWriter, vals url.Values) {
 	w.WriteHeader(http.StatusOK)
 
 	vols := filterVolumes(m.volumes, vals)
 
-	resp := volumeListResponse{
-		Volumes: vols,
-	}
-	respB, err := json.Marshal(resp)
+	respB, err := MarshalVolumes(vols)
 	if err != nil {
-		panic(fmt.Sprintf("failed to marshal %+v", resp))
+		panic(fmt.Sprintf("failed to marshal %+v", vols))
 	}
 	_, err = w.Write(respB)
 	if err != nil {
@@ -95,12 +160,9 @@ func (m *MockClient) listVolumes(w http.ResponseWriter, vals url.Values) {
 
 func (m *MockClient) getVolume(w http.ResponseWriter, volumeID string) {
 	if vol, ok := m.volumes[volumeID]; ok {
-		resp := volumeGetResponse{
-			Volume: vol,
-		}
-		respB, err := json.Marshal(resp)
+		respB, err := MarshalVolume(vol)
 		if err != nil {
-			panic(fmt.Sprintf("failed to marshal %+v", resp))
+			panic(fmt.Sprintf("failed to marshal %+v", vol))
 		}
 		_, err = w.Write(respB)
 		if err != nil {
@@ -111,7 +173,7 @@ func (m *MockClient) getVolume(w http.ResponseWriter, volumeID string) {
 	}
 }
 
-func (m *MockClient) updateVolume(w http.ResponseWriter, r *http.Request, volumeID string) {
+func (m *MockClient) updateVolume(w http.ResponseWriter, r *http.Request, volumeID string, mocks UpdateMocks) {
 	if _, ok := m.volumes[volumeID]; !ok {
 		w.WriteHeader(http.StatusNotFound)
 		return
@@ -123,7 +185,21 @@ func (m *MockClient) updateVolume(w http.ResponseWriter, r *http.Request, volume
 	}
 	vol := m.volumes[volumeID]
 	vol.Metadata = update.Volume.Metadata
+	vol.UpdatedAt = mocks.UpdatedAt
+	vol.VolumeType = mocks.VolumeType
+	vol.Size = mocks.Size
+	m.volumes[volumeID] = vol
+
 	w.WriteHeader(http.StatusOK)
+
+	respB, err := MarshalVolume(vol)
+	if err != nil {
+		panic(fmt.Sprintf("failed to marshal %+v", vol))
+	}
+	_, err = w.Write(respB)
+	if err != nil {
+		panic("failed to write body")
+	}
 }
 
 func (m *MockClient) deleteVolume(w http.ResponseWriter, volumeID string) {
@@ -135,7 +211,7 @@ func (m *MockClient) deleteVolume(w http.ResponseWriter, volumeID string) {
 	}
 }
 
-func (m *MockClient) createVolume(w http.ResponseWriter, r *http.Request) {
+func (m *MockClient) createVolume(w http.ResponseWriter, r *http.Request, mocks CreateMocks) {
 	var create volumeCreateRequest
 	err := json.NewDecoder(r.Body).Decode(&create)
 	if err != nil {
@@ -151,15 +227,14 @@ func (m *MockClient) createVolume(w http.ResponseWriter, r *http.Request) {
 		AvailabilityZone: create.Volume.AvailabilityZone,
 		Metadata:         create.Volume.Metadata,
 		VolumeType:       create.Volume.VolumeType,
+		CreatedAt:        mocks.CreatedAt,
+		UpdatedAt:        mocks.UpdatedAt,
 	}
 	m.volumes[v.ID] = v
 
-	resp := volumeGetResponse{
-		Volume: v,
-	}
-	respB, err := json.Marshal(resp)
+	respB, err := MarshalVolume(v)
 	if err != nil {
-		panic(fmt.Sprintf("failed to marshal %+v", resp))
+		panic(fmt.Sprintf("failed to marshal %+v", v))
 	}
 	_, err = w.Write(respB)
 	if err != nil {
