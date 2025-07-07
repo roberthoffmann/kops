@@ -19,6 +19,7 @@ package mockblockstorage
 import (
 	"net/http/httptest"
 	"sync"
+	"time"
 
 	cinderv3 "github.com/gophercloud/gophercloud/v2/openstack/blockstorage/v3/volumes"
 	"github.com/gophercloud/gophercloud/v2/openstack/compute/v2/availabilityzones"
@@ -34,12 +35,28 @@ type MockClient struct {
 	availabilityZones map[string]availabilityzones.AvailabilityZone
 }
 
+type CreateMocks struct {
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+type UpdateMocks struct {
+	UpdatedAt  time.Time
+	VolumeType string
+	Size       int
+}
+
+type ExtraMocks struct {
+	Create CreateMocks
+	Update []UpdateMocks
+}
+
 // CreateClient will create a new mock blockstorage client
-func CreateClient() *MockClient {
+func CreateClient(extraMocks ExtraMocks) *MockClient {
 	m := &MockClient{}
 	m.Reset()
 	m.SetupMux()
-	m.mockVolumes()
+	m.mockVolumes(extraMocks)
 	m.mockAvailabilityZones()
 	m.Server = httptest.NewServer(m.Mux)
 	return m

@@ -305,7 +305,7 @@ func (h *IntegrationTestHarness) SetupMockGCE() *gcemock.MockGCECloud {
 
 func SetupMockOpenstack() *openstack.MockCloud {
 	c := openstack.InstallMockOpenstackCloud("us-test1")
-	c.MockCinderClient = mockblockstorage.CreateClient()
+	c.MockCinderClient = mockblockstorage.CreateClient(mockblockstorage.ExtraMocks{})
 
 	c.MockNeutronClient = mocknetworking.CreateClient()
 
