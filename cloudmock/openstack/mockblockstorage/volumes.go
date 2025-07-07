@@ -19,14 +19,12 @@ package mockblockstorage
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/google/uuid"
+	"github.com/gophercloud/gophercloud/v2/openstack/blockstorage/v3/volumes"
 	"net/http"
 	"net/url"
 	"regexp"
 	"strings"
-	"time"
-
-	"github.com/google/uuid"
-	"github.com/gophercloud/gophercloud/v2/openstack/blockstorage/v3/volumes"
 )
 
 type volumeListResponse struct {
@@ -37,22 +35,17 @@ type volumeGetResponse struct {
 	Volume volumes.Volume `json:"volume"`
 }
 
-type volumeMocks struct {
-	CreatedAt time.Time `json:"-"`
-	UpdatedAt time.Time `json:"-"`
-}
-
 type volumeCreateRequest struct {
-	Volume      volumes.CreateOpts `json:"volume"`
-	VolumeMocks volumeMocks        `json:"volumeMocks"`
+	Volume volumes.CreateOpts `json:"volume"`
 }
 
 type volumeUpdateRequest struct {
 	Volume volumes.UpdateOpts `json:"volume"`
 }
 
-func (m *MockClient) mockVolumes() {
+func (m *MockClient) mockVolumes(mockTimer MockTimer) {
 	re := regexp.MustCompile(`/volumes/?`)
+	timer := mockTimer
 
 	handler := func(w http.ResponseWriter, r *http.Request) {
 		m.mutex.Lock()
@@ -69,7 +62,7 @@ func (m *MockClient) mockVolumes() {
 				m.getVolume(w, volID)
 			}
 		case http.MethodPost:
-			m.createVolume(w, r)
+			m.createVolume(w, r, timer)
 		case http.MethodPut:
 			m.updateVolume(w, r, volID)
 		case http.MethodDelete:
@@ -142,7 +135,7 @@ func (m *MockClient) deleteVolume(w http.ResponseWriter, volumeID string) {
 	}
 }
 
-func (m *MockClient) createVolume(w http.ResponseWriter, r *http.Request) {
+func (m *MockClient) createVolume(w http.ResponseWriter, r *http.Request, mockTimer MockTimer) {
 	var create volumeCreateRequest
 	err := json.NewDecoder(r.Body).Decode(&create)
 	if err != nil {
@@ -158,8 +151,8 @@ func (m *MockClient) createVolume(w http.ResponseWriter, r *http.Request) {
 		AvailabilityZone: create.Volume.AvailabilityZone,
 		Metadata:         create.Volume.Metadata,
 		VolumeType:       create.Volume.VolumeType,
-		CreatedAt:        create.VolumeMocks.CreatedAt,
-		UpdatedAt:        create.VolumeMocks.UpdatedAt,
+		CreatedAt:        mockTimer.CreatedAt,
+		UpdatedAt:        mockTimer.UpdatedAt,
 	}
 	m.volumes[v.ID] = v
 
