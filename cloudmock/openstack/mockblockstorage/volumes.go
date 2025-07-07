@@ -38,8 +38,8 @@ type volumeGetResponse struct {
 }
 
 type volumeMocks struct {
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	CreatedAt time.Time `json:"-"`
+	UpdatedAt time.Time `json:"-"`
 }
 
 type volumeCreateRequest struct {
