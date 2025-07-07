@@ -23,6 +23,7 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/gophercloud/gophercloud/v2/openstack/blockstorage/v3/volumes"
@@ -36,8 +37,14 @@ type volumeGetResponse struct {
 	Volume volumes.Volume `json:"volume"`
 }
 
+type volumeMocks struct {
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
 type volumeCreateRequest struct {
-	Volume volumes.CreateOpts `json:"volume"`
+	Volume      volumes.CreateOpts `json:"volume"`
+	VolumeMocks volumeMocks        `json:"volumeMocks"`
 }
 
 type volumeUpdateRequest struct {
@@ -151,6 +158,8 @@ func (m *MockClient) createVolume(w http.ResponseWriter, r *http.Request) {
 		AvailabilityZone: create.Volume.AvailabilityZone,
 		Metadata:         create.Volume.Metadata,
 		VolumeType:       create.Volume.VolumeType,
+		CreatedAt:        create.VolumeMocks.CreatedAt,
+		UpdatedAt:        create.VolumeMocks.UpdatedAt,
 	}
 	m.volumes[v.ID] = v
 
