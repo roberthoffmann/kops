@@ -20,7 +20,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/google/uuid"
-	"github.com/gophercloud/gophercloud/v2"
 	"github.com/gophercloud/gophercloud/v2/openstack/blockstorage/v3/volumes"
 	"net/http"
 	"net/url"
@@ -102,7 +101,6 @@ func MarshalJSON(r *volumes.Volume) ([]byte, error) {
 		r.UpdatedAt,
 	}
 
-	s1.
 	res, err := json.Marshal(s1)
 	if err != nil {
 		return nil, err
