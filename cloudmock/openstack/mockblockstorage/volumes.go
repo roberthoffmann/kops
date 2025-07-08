@@ -20,7 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/google/uuid"
-	"github.com/gophercloud/gophercloud/v2/openstack/blockstorage/v3/volumes"
+	volumes "github.com/gophercloud/gophercloud/v2/openstack/blockstorage/v3/volumes"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -28,8 +28,14 @@ import (
 	"time"
 )
 
+type ExtendedVolumeType struct {
+	volumes.Volume
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
 type volumeListResponse struct {
-	Volumes []volumes.Volume `json:"volumes"`
+	Volumes []ExtendedVolumeType `json:"volumes"`
 }
 
 type volumeGetResponse struct {
@@ -78,30 +84,17 @@ func (m *MockClient) mockVolumes(mockTimer MockTimer) {
 
 func MarshalVolumes(volumes []volumes.Volume) ([]byte, error) {
 	var res []byte
+	var newVolumes volumeListResponse
+
 	for _, v := range volumes {
-		b, err := MarshalJSON(&v)
+		newVolume, err := AddMocksReplaceVolumes(&v)
 		if err != nil {
 			return nil, err
 		}
-		res = append(res, b...)
-	}
-	return res, nil
-}
-
-func MarshalJSON(r *volumes.Volume) ([]byte, error) {
-	type s struct {
-		volumes.Volume
-		CreatedAt time.Time `json:"created_at"`
-		UpdatedAt time.Time `json:"updated_at"`
+		newVolumes.Volumes = append(newVolumes.Volumes, newVolume)
 	}
 
-	s1 := s{
-		*r,
-		r.CreatedAt,
-		r.UpdatedAt,
-	}
-
-	res, err := json.Marshal(s1)
+	res, err := json.Marshal(newVolumes)
 	if err != nil {
 		return nil, err
 	}
@@ -109,13 +102,22 @@ func MarshalJSON(r *volumes.Volume) ([]byte, error) {
 	return res, nil
 }
 
+func AddMocksReplaceVolumes(r *volumes.Volume) (ExtendedVolumeType, error) {
+
+	newVol := ExtendedVolumeType{
+		*r,
+		r.CreatedAt,
+		r.UpdatedAt,
+	}
+	return newVol, nil
+}
+
 func (m *MockClient) listVolumes(w http.ResponseWriter, vals url.Values) {
 	w.WriteHeader(http.StatusOK)
 
 	vols := filterVolumes(m.volumes, vals)
 
-	respB, err := json.Marshal(vols)
-	//	respB, err := MarshalVolumes(vols)
+	respB, err := MarshalVolumes(vols)
 	if err != nil {
 		panic(fmt.Sprintf("failed to marshal %+v", vols))
 	}
