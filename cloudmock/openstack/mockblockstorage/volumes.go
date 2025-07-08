@@ -20,18 +20,18 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/google/uuid"
+	"github.com/gophercloud/gophercloud/v2"
 	volumes "github.com/gophercloud/gophercloud/v2/openstack/blockstorage/v3/volumes"
 	"net/http"
 	"net/url"
 	"regexp"
 	"strings"
-	"time"
 )
 
 type ExtendedVolumeType struct {
 	volumes.Volume
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	CreatedAt gophercloud.JSONRFC3339MilliNoZ `json:"created_at"`
+	UpdatedAt gophercloud.JSONRFC3339MilliNoZ `json:"updated_at"`
 }
 
 type volumeListResponse struct {
@@ -106,8 +106,8 @@ func AddMocksReplaceVolumes(r *volumes.Volume) (ExtendedVolumeType, error) {
 
 	newVol := ExtendedVolumeType{
 		*r,
-		r.CreatedAt,
-		r.UpdatedAt,
+		gophercloud.JSONRFC3339MilliNoZ(r.CreatedAt),
+		gophercloud.JSONRFC3339MilliNoZ(r.UpdatedAt),
 	}
 	return newVol, nil
 }
