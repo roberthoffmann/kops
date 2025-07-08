@@ -35,7 +35,7 @@ const RFC3339NoZ = "2006-01-02T15:04:05"
 
 func (l *JSONRFC3339MilliNoZ) MarshalJSON() ([]byte, error) {
 	t := time.Time(*l)
-	s := t.Format(RFC3339NoZ)
+	s := `"` + t.Format(RFC3339NoZ) + `"`
 	return []byte(s), nil
 }
 
