@@ -102,7 +102,7 @@ func MarshalVolume(volume volumes.Volume) ([]byte, error) {
 	}
 
 	newVolume.Volume = newVol
-	res, err = json.Marshal(newVolume)
+	res, err = json.Marshal(newVolume.Volume)
 	if err != nil {
 		return nil, err
 	}
