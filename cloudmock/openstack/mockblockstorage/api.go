@@ -35,17 +35,28 @@ type MockClient struct {
 	availabilityZones map[string]availabilityzones.AvailabilityZone
 }
 
-type MockTimer struct {
+type CreateMocks struct {
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
 
+type UpdateMocks struct {
+	UpdatedAt  time.Time
+	VolumeType string
+	Size       int
+}
+
+type ExtraMocks struct {
+	Create CreateMocks
+	Update []UpdateMocks
+}
+
 // CreateClient will create a new mock blockstorage client
-func CreateClient(mockTimer MockTimer) *MockClient {
+func CreateClient(extraMocks ExtraMocks) *MockClient {
 	m := &MockClient{}
 	m.Reset()
 	m.SetupMux()
-	m.mockVolumes(mockTimer)
+	m.mockVolumes(extraMocks)
 	m.mockAvailabilityZones()
 	m.Server = httptest.NewServer(m.Mux)
 	return m

@@ -61,13 +61,14 @@ type volumeUpdateRequest struct {
 	Volume volumes.UpdateOpts `json:"volume"`
 }
 
-func (m *MockClient) mockVolumes(mockTimer MockTimer) {
+func (m *MockClient) mockVolumes(extraMocks ExtraMocks) {
 	re := regexp.MustCompile(`/volumes/?`)
 
 	handler := func(w http.ResponseWriter, r *http.Request) {
 		m.mutex.Lock()
 		defer m.mutex.Unlock()
 
+		updateCounter := 0
 		w.Header().Add("Content-Type", "application/json")
 		volID := re.ReplaceAllString(r.URL.Path, "")
 		switch r.Method {
@@ -79,9 +80,10 @@ func (m *MockClient) mockVolumes(mockTimer MockTimer) {
 				m.getVolume(w, volID)
 			}
 		case http.MethodPost:
-			m.createVolume(w, r, mockTimer)
+			m.createVolume(w, r, extraMocks.Create)
 		case http.MethodPut:
-			m.updateVolume(w, r, volID)
+			m.updateVolume(w, r, volID, extraMocks.Update[updateCounter])
+			updateCounter++
 		case http.MethodDelete:
 			m.deleteVolume(w, volID)
 		default:
@@ -158,7 +160,7 @@ func (m *MockClient) listVolumes(w http.ResponseWriter, vals url.Values) {
 
 func (m *MockClient) getVolume(w http.ResponseWriter, volumeID string) {
 	if vol, ok := m.volumes[volumeID]; ok {
-		respB, err := json.Marshal(vol)
+		respB, err := MarshalVolume(vol)
 		if err != nil {
 			panic(fmt.Sprintf("failed to marshal %+v", vol))
 		}
@@ -171,7 +173,7 @@ func (m *MockClient) getVolume(w http.ResponseWriter, volumeID string) {
 	}
 }
 
-func (m *MockClient) updateVolume(w http.ResponseWriter, r *http.Request, volumeID string) {
+func (m *MockClient) updateVolume(w http.ResponseWriter, r *http.Request, volumeID string, mocks UpdateMocks) {
 	if _, ok := m.volumes[volumeID]; !ok {
 		w.WriteHeader(http.StatusNotFound)
 		return
@@ -183,6 +185,10 @@ func (m *MockClient) updateVolume(w http.ResponseWriter, r *http.Request, volume
 	}
 	vol := m.volumes[volumeID]
 	vol.Metadata = update.Volume.Metadata
+	vol.UpdatedAt = mocks.UpdatedAt
+	vol.VolumeType = mocks.VolumeType
+	vol.Size = mocks.Size
+
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -195,7 +201,7 @@ func (m *MockClient) deleteVolume(w http.ResponseWriter, volumeID string) {
 	}
 }
 
-func (m *MockClient) createVolume(w http.ResponseWriter, r *http.Request, mockTimer MockTimer) {
+func (m *MockClient) createVolume(w http.ResponseWriter, r *http.Request, mocks CreateMocks) {
 	var create volumeCreateRequest
 	err := json.NewDecoder(r.Body).Decode(&create)
 	if err != nil {
@@ -211,8 +217,8 @@ func (m *MockClient) createVolume(w http.ResponseWriter, r *http.Request, mockTi
 		AvailabilityZone: create.Volume.AvailabilityZone,
 		Metadata:         create.Volume.Metadata,
 		VolumeType:       create.Volume.VolumeType,
-		CreatedAt:        mockTimer.CreatedAt,
-		UpdatedAt:        mockTimer.UpdatedAt,
+		CreatedAt:        mocks.CreatedAt,
+		UpdatedAt:        mocks.UpdatedAt,
 	}
 	m.volumes[v.ID] = v
 
