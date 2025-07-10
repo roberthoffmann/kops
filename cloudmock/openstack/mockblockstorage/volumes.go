@@ -94,17 +94,17 @@ func (m *MockClient) mockVolumes(mockTimer MockTimer) {
 
 func MarshalVolume(volume volumes.Volume) ([]byte, error) {
 	var res []byte
-	var newVolume volumeGetResponse
+	//var newVolume volumeGetResponse
+	var newVolumes volumeListResponse
 
 	newVol, err := AddMocksReplaceVolumes(&volume)
 	if err != nil {
 		return nil, err
 	}
 
-	newVolume.Volume = newVol
-	newVolume.Volume.CreatedAt = newVol.CreatedAt
-	newVolume.Volume.UpdatedAt = newVol.UpdatedAt
-	res, err = json.Marshal(newVolume.Volume)
+	newVolumes.Volumes = append(newVolumes.Volumes, newVol)
+
+	res, err = json.Marshal(newVolumes.Volumes[0])
 	if err != nil {
 		return nil, err
 	}
