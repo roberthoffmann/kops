@@ -63,12 +63,12 @@ type volumeUpdateRequest struct {
 
 func (m *MockClient) mockVolumes(extraMocks ExtraMocks) {
 	re := regexp.MustCompile(`/volumes/?`)
+	updateCounter := 0
 
 	handler := func(w http.ResponseWriter, r *http.Request) {
 		m.mutex.Lock()
 		defer m.mutex.Unlock()
 
-		updateCounter := 0
 		w.Header().Add("Content-Type", "application/json")
 		volID := re.ReplaceAllString(r.URL.Path, "")
 		switch r.Method {
