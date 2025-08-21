@@ -47,7 +47,7 @@ type ExtendedServerType struct {
 	servers.Server
 	Created    JSONRFC3339MilliNoZ `json:"-"`
 	Updated    JSONRFC3339MilliNoZ `json:"-"`
-	LaunchedAt JSONRFC3339MilliNoZ `json:"launched_at"`
+	LaunchedAt JSONRFC3339MilliNoZ `json:"-"`
 }
 
 type serverGetResponse struct {
