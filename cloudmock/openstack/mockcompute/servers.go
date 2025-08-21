@@ -33,7 +33,7 @@ import (
 	"github.com/gophercloud/gophercloud/v2/openstack/compute/v2/servers"
 )
 
-type JSONRFC3339MilliNoZ gophercloud.JSONRFC3339MilliNoZ
+type JSONRFC3339MilliNoZ time.Time
 
 const RFC3339NoZ = "2006-01-02T15:04:05"
 
