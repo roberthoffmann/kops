@@ -33,7 +33,7 @@ import (
 	"github.com/gophercloud/gophercloud/v2/openstack/compute/v2/servers"
 )
 
-type JSONRFC3339MilliNoZ time.Time
+type JSONRFC3339MilliNoZ gophercloud.JSONRFC3339MilliNoZ
 
 const RFC3339NoZ = "2006-01-02T15:04:05"
 
@@ -47,7 +47,7 @@ type ExtendedServerType struct {
 	servers.Server
 	Created    JSONRFC3339MilliNoZ `json:"-"`
 	Updated    JSONRFC3339MilliNoZ `json:"-"`
-	LaunchedAt JSONRFC3339MilliNoZ `json:"-"`
+	LaunchedAt JSONRFC3339MilliNoZ `json:"OS-SRV-USG:launched_at"`
 }
 
 type serverGetResponse struct {
